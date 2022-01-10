@@ -2,9 +2,12 @@
 using Microsoft.Web.WebView2.WinForms;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Tooling.Connector;
+using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using XrmToolBox.Extensibility;
 
@@ -61,6 +64,63 @@ namespace GuidoPreite.DRB
             wvMain.CoreWebView2.AddHostObjectToScript("xtbSettings", xtbSettings);
             string indexPath = Path.Combine(Paths.PluginsPath, drbFolder, drbIndexFile);
             wvMain.Source = new Uri(indexPath);
+
+            RefreshToken(false);
+        }
+
+        private void RefreshToken(bool normalRun = true)
+        {
+            try
+            {
+                CrmServiceClient serviceClient = ConnectionDetail.GetCrmServiceClient();
+                string token = serviceClient.CurrentAccessToken;
+                DateTimeOffset? checkExpirationTime = ExtractExpirationTimeFromJWT(token);
+                if (checkExpirationTime.HasValue)
+                {
+                    DateTimeOffset expirationTime = checkExpirationTime.Value;
+                    DateTimeOffset utcNow = DateTimeOffset.UtcNow;
+                    if (expirationTime > utcNow)
+                    {
+                        // send the token to the loaded web page
+                        foreach (Control control in Controls)
+                        {
+                            if (control is WebView2)
+                            {
+                                string jsToExecute = "DRB.Common.RefreshXTBToken('" + token + "');";
+                                if (normalRun)
+                                {
+                                    Invoke((MethodInvoker)delegate { ((WebView2)control).ExecuteScriptAsync(jsToExecute); });
+                                }
+                            }
+                        }
+                        TimeSpan difference = expirationTime - utcNow;
+                        Task.Delay(difference).ContinueWith(task => RefreshToken());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message);
+            }
+        }
+
+        private DateTimeOffset? ExtractExpirationTimeFromJWT(string token)
+        {
+            try
+            {
+                string base64Payload = token.Split('.')[1];
+                while (base64Payload.Length % 4 != 0) { base64Payload += '='; }
+                byte[] bytePayload = Convert.FromBase64String(base64Payload);
+                string stringPayload = Encoding.UTF8.GetString(bytePayload);
+                dynamic jsonPayload = JsonConvert.DeserializeObject(stringPayload);
+                long unixExpiration = jsonPayload.exp;
+                return DateTimeOffset.FromUnixTimeSeconds(unixExpiration);
+            }
+            catch
+            {
+                // something went wrong with the extraction
+                return null;
+            }
         }
     }
 
