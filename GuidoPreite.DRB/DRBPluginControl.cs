@@ -56,16 +56,21 @@ namespace GuidoPreite.DRB
         {
             string drbFolder = "GuidoPreite.DRB";
             string drbIndexFile = "drb_index.htm";
-
-            WebView2 wvMain = new WebView2 { Dock = DockStyle.Fill };
-            Controls.Add(wvMain);
-            await wvMain.EnsureCoreWebView2Async();
-            XTBSettings xtbSettings = new XTBSettings { Token = token, Url = url, Version = version };
-            wvMain.CoreWebView2.AddHostObjectToScript("xtbSettings", xtbSettings);
-            string indexPath = Path.Combine(Paths.PluginsPath, drbFolder, drbIndexFile);
-            wvMain.Source = new Uri(indexPath);
-
-            RefreshToken(false);
+            try
+            {
+                WebView2 wvMain = new WebView2 { Dock = DockStyle.Fill };
+                Controls.Add(wvMain);
+                await wvMain.EnsureCoreWebView2Async();
+                XTBSettings xtbSettings = new XTBSettings { Token = token, Url = url, Version = version };
+                wvMain.CoreWebView2.AddHostObjectToScript("xtbSettings", xtbSettings);
+                string indexPath = Path.Combine(Paths.PluginsPath, drbFolder, drbIndexFile);
+                wvMain.Source = new Uri(indexPath);
+                RefreshToken(false);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"LoadDRBWebView Error. Details: {ex.Message}", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void RefreshToken(bool normalRun = true)
@@ -100,7 +105,7 @@ namespace GuidoPreite.DRB
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show($"RefreshToken Error. Details: {ex.Message}", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
