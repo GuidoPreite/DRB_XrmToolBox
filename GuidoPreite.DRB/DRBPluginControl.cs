@@ -10,11 +10,15 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using XrmToolBox.Extensibility;
+using XrmToolBox.Extensibility.Interfaces;
+
 
 namespace GuidoPreite.DRB
 {
-    public partial class DRBPluginControl : PluginControlBase
+    public partial class DRBPluginControl : PluginControlBase, IMessageBusHost
     {
+        public event EventHandler<MessageBusEventArgs> OnOutgoingMessage;
+
         private void DRBPluginControl_Load(object sender, EventArgs e)
         {
         }
@@ -23,6 +27,19 @@ namespace GuidoPreite.DRB
         {
             base.UpdateConnection(newService, detail, actionName, parameter);
             CheckConnection();
+        }
+
+        private void SendFetchXMLToFXB(string fetchXML)
+        {
+
+            try
+            {
+                OnOutgoingMessage(this, new MessageBusEventArgs("FetchXML Builder") { TargetArgument = fetchXML });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"SendFetchXMLToFXB Error. Details: {ex.Message}", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void CheckConnection()
@@ -65,11 +82,36 @@ namespace GuidoPreite.DRB
                 wvMain.CoreWebView2.AddHostObjectToScript("xtbSettings", xtbSettings);
                 string indexPath = Path.Combine(Paths.PluginsPath, drbFolder, drbIndexFile);
                 wvMain.Source = new Uri(indexPath);
+
+                wvMain.WebMessageReceived += WvMain_WebMessageReceived;
+
                 RefreshToken(false);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"LoadDRBWebView Error. Details: {ex.Message}", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void WvMain_WebMessageReceived(object sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+        {
+            try
+            {
+                string message = e.TryGetWebMessageAsString();
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    WebViewPostMessage parsedMessage = JsonConvert.DeserializeObject<WebViewPostMessage>(message);
+                    switch (parsedMessage.action)
+                    {
+                        case "sendtofxb":
+                            SendFetchXMLToFXB(parsedMessage.data);
+                            break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"WvMain_WebMessageReceived Error. Details: {ex.Message}", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -127,6 +169,17 @@ namespace GuidoPreite.DRB
                 return null;
             }
         }
+
+        public void OnIncomingMessage(MessageBusEventArgs message)
+        {
+            // do nothing
+        }
+    }
+
+    public class WebViewPostMessage
+    {
+        public string action { get; set; }
+        public string data { get; set; }
     }
 
     [ClassInterface(ClassInterfaceType.AutoDual)]
