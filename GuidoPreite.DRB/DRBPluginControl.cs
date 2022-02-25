@@ -1,4 +1,5 @@
 ﻿using McTools.Xrm.Connection;
+using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Tooling.Connector;
@@ -15,8 +16,22 @@ using XrmToolBox.Extensibility.Interfaces;
 
 namespace GuidoPreite.DRB
 {
-    public partial class DRBPluginControl : PluginControlBase, IMessageBusHost
+    public partial class DRBPluginControl : PluginControlBase, IMessageBusHost, IHelpPlugin, IGitHubPlugin, IPayPalPlugin
     {
+        #region Help
+        public string HelpUrl => "https://github.com/GuidoPreite/DRB";
+        #endregion
+
+        #region GitHub
+        public string RepositoryName => "DRB";
+        public string UserName => "GuidoPreite";
+        #endregion
+
+        #region PayPal
+        public string DonationDescription => "Donation for Dataverse REST Builder";
+        public string EmailAccount => "[username]@gmail.com";
+        #endregion
+
         public event EventHandler<MessageBusEventArgs> OnOutgoingMessage;
 
         private void DRBPluginControl_Load(object sender, EventArgs e)
@@ -54,7 +69,7 @@ namespace GuidoPreite.DRB
 
                 if (string.IsNullOrWhiteSpace(token))
                 {
-                    MessageBox.Show($"The current connection is not compatible with the XrmToolBox version of Dataverse REST Builder.{Environment.NewLine}Inside this instance you can install the Managed Solution, click the Help button to visit the repository.", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1, 0, "https://github.com/GuidoPreite/DRB/releases");
+                    MessageBox.Show($"The current connection is not compatible with the XrmToolBox version of Dataverse REST Builder.{Environment.NewLine}{Environment.NewLine}Inside this instance you can install the Managed Solution, click the «Help» button to visit the repository.", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1, 0, "https://github.com/GuidoPreite/DRB/releases");
                 }
                 else
                 {
@@ -73,23 +88,43 @@ namespace GuidoPreite.DRB
         {
             string drbFolder = "GuidoPreite.DRB";
             string drbIndexFile = "drb_index.htm";
+
+
+            // Check if WebView2 component is installed
+            bool isWebView2Installed = true;
             try
             {
-                WebView2 wvMain = new WebView2 { Dock = DockStyle.Fill };
-                Controls.Add(wvMain);
-                await wvMain.EnsureCoreWebView2Async();
-                XTBSettings xtbSettings = new XTBSettings { Token = token, Url = url, Version = version };
-                wvMain.CoreWebView2.AddHostObjectToScript("xtbSettings", xtbSettings);
-                string indexPath = Path.Combine(Paths.PluginsPath, drbFolder, drbIndexFile);
-                wvMain.Source = new Uri(indexPath);
-
-                wvMain.WebMessageReceived += WvMain_WebMessageReceived;
-
-                RefreshToken(false);
+                string webView2Version = CoreWebView2Environment.GetAvailableBrowserVersionString();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"LoadDRBWebView Error. Details: {ex.Message}", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                isWebView2Installed = false;
+            }
+
+            if (isWebView2Installed == false)
+            {
+                MessageBox.Show($"Dataverse REST Builder requires the Microsoft Edge WebView2 runtime in order to run.{Environment.NewLine}{Environment.NewLine}Click the «Help» button to visit the Microsoft download page.{Environment.NewLine}{Environment.NewLine}After the runtime is installed please reopen XrmToolBox and try to launch again Dataverse REST Builder.", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1, 0, "https://developer.microsoft.com/en-us/microsoft-edge/webview2/");
+            }
+            else
+            {
+                try
+                {
+                    WebView2 wvMain = new WebView2 { Dock = DockStyle.Fill };
+                    Controls.Add(wvMain);
+                    await wvMain.EnsureCoreWebView2Async();
+                    XTBSettings xtbSettings = new XTBSettings { Token = token, Url = url, Version = version };
+                    wvMain.CoreWebView2.AddHostObjectToScript("xtbSettings", xtbSettings);
+                    string indexPath = Path.Combine(Paths.PluginsPath, drbFolder, drbIndexFile);
+                    wvMain.Source = new Uri(indexPath);
+
+                    wvMain.WebMessageReceived += WvMain_WebMessageReceived;
+
+                    RefreshToken(false);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"LoadDRBWebView Error. Details: {ex.Message}", "Dataverse REST Builder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 

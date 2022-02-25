@@ -18,8 +18,13 @@ namespace GuidoPreite.DRB
         ExportMetadata("PrimaryFontColor", "Black"),
         ExportMetadata("SecondaryFontColor", "Gray")]
 
-    public class DRBPlugin : PluginBase
+    public class DRBPlugin : PluginBase, IPayPalPlugin
     {
+        #region PayPal
+        public string DonationDescription => "Donation for Dataverse REST Builder";
+        public string EmailAccount => "[username]@gmail.com";
+        #endregion
+
         public override IXrmToolBoxPluginControl GetControl()
         {
             return new DRBPluginControl();
